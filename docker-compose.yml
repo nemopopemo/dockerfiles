@@ -1,3 +1,7 @@
+networks:
+  eventschedule:
+    driver: bridge
+
 services:
   app:
     build:
@@ -6,9 +10,22 @@ services:
       target: app
       args:
         APP_REF: main
-    env_file: .env
     environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: eventschedule
+      DB_USERNAME: eventschedule
       DB_PASSWORD: ${DB_PASSWORD:-change_me}
+      APP_URL: ${APP_URL:-http://localhost}
+      APP_ENV: production
+      APP_DEBUG: "false"
+      FORCE_HTTPS: "true"
+      SESSION_SECURE_COOKIE: "true"
+      LOG_CHANNEL: stack
+      LOG_LEVEL: info
+      CACHE_DRIVER: file
+      SESSION_DRIVER: file
+      QUEUE_CONNECTION: sync
     depends_on:
       db:
         condition: service_healthy
@@ -19,6 +36,8 @@ services:
     entrypoint: ["/usr/local/bin/docker-entrypoint.sh"]
     command: ["php-fpm", "-F"]
     restart: unless-stopped
+    networks:
+      - eventschedule
     healthcheck:
       test: ["CMD-SHELL", "nc -z 127.0.0.1 9000"]
       interval: 5s
@@ -33,12 +52,13 @@ services:
     depends_on:
       app:
         condition: service_healthy
-    ports:
-      - "8080:80"
-    # Nginx only needs runtime-uploaded files; avoid masking bundled code
+    expose:
+      - "80"
     volumes:
       - storage:/var/www/html/storage:ro
     restart: unless-stopped
+    networks:
+      - eventschedule
 
   db:
     image: mariadb:11
@@ -46,15 +66,19 @@ services:
       MYSQL_DATABASE: eventschedule
       MYSQL_USER: eventschedule
       MYSQL_PASSWORD: ${DB_PASSWORD:-change_me}
-      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpass}
     volumes:
       - dbdata:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "-uroot", "-prootpass"]
+      test: ["CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "-uroot", "-p${DB_ROOT_PASSWORD:-rootpass}"]
       interval: 5s
       timeout: 3s
       retries: 40
     restart: unless-stopped
+    networks:
+      eventschedule:
+        aliases:
+          - db
 
   scheduler:
     build:
@@ -66,11 +90,20 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    env_file: .env
     environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: eventschedule
+      DB_USERNAME: eventschedule
       DB_PASSWORD: ${DB_PASSWORD:-change_me}
+      APP_ENV: production
+      CACHE_DRIVER: file
+      SESSION_DRIVER: file
+      QUEUE_CONNECTION: sync
     command: ["sh", "-lc", "while :; do php artisan schedule:run --verbose --no-interaction || true; sleep 60; done"]
     restart: unless-stopped
+    networks:
+      - eventschedule
     volumes:
       - storage:/var/www/html/storage
       - vendor:/var/www/html/vendor
