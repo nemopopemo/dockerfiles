@@ -2,7 +2,13 @@
 set -e
 
 cd /var/www/html
-
+# Apply local patches if present
+if [ -d "/var/www/html/patches" ]; then
+  if [ -f "/var/www/html/patches/AppServiceProvider.php" ]; then
+    echo "Applying patch: AppServiceProvider.php"
+    cp -f /var/www/html/patches/AppServiceProvider.php /var/www/html/app/Providers/AppServiceProvider.php
+  fi
+fi
 # Ensure .env exists
 [ -f .env ] || cp .env.example .env
 
