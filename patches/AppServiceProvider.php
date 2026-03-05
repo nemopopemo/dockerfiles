@@ -32,6 +32,11 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
+        // Ensure these variables always exist in views (prevents 500s if a controller doesn't pass them)
+        View::share('schedules', collect());
+        View::share('venues', collect());
+        View::share('curators', collect());
+
         if (!class_exists(\App\Models\Setting::class)) {
             return;
         }
