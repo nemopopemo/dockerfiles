@@ -36,6 +36,7 @@ class AppServiceProvider extends ServiceProvider
         View::share('schedules', collect());
         View::share('venues', collect());
         View::share('curators', collect());
+        View::share('upgradeSubdomain', null);
 
         if (!class_exists(\App\Models\Setting::class)) {
             return;
